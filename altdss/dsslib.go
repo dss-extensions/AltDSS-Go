@@ -15,6 +15,337 @@ import "C"
 
 const DSS_CAPI_VERSION = "0.14.0b1"
 
+type ActionCodes int32
+
+const (
+	ActionCodes_none    ActionCodes = 0 // No action
+	ActionCodes_Open    ActionCodes = 1 // Open a switch
+	ActionCodes_Close   ActionCodes = 2 // Close a switch
+	ActionCodes_Reset   ActionCodes = 3 // Reset to the shelf state (unlocked, closed for a switch)
+	ActionCodes_Lock    ActionCodes = 4 // Lock a switch, preventing both manual and automatic operation
+	ActionCodes_Unlock  ActionCodes = 5 // Unlock a switch, permitting both manual and automatic operation
+	ActionCodes_TapUp   ActionCodes = 6 // Move a regulator tap up
+	ActionCodes_TapDown ActionCodes = 7 // Move a regulator tap down
+)
+
+// Event codes used by the event callback system
+//
+// Legacy events are the events present the classic OpenDSS COM implementation,
+// while the rest are extensions added here.
+type AltDSSEvent int32
+
+const (
+	AltDSSEvent_Legacy_InitControls  AltDSSEvent = 0
+	AltDSSEvent_Legacy_CheckControls AltDSSEvent = 1
+	AltDSSEvent_Legacy_StepControls  AltDSSEvent = 2
+	AltDSSEvent_Clear                AltDSSEvent = 3
+	AltDSSEvent_ReprocessBuses       AltDSSEvent = 4
+	AltDSSEvent_BuildSystemY         AltDSSEvent = 5
+)
+
+type AutoAddTypes int32
+
+const (
+	AutoAddTypes_AddGen AutoAddTypes = 1 // Add generators in AutoAdd mode
+	AutoAddTypes_AddCap AutoAddTypes = 2 // Add capacitors in AutoAdd mode
+)
+
+type CapControlModes int32
+
+const (
+	CapControlModes_Current CapControlModes = 0 // Current control, ON and OFF settings on CT secondary
+	CapControlModes_Voltage CapControlModes = 1 // Voltage control, ON and OFF settings on the PT secondary base
+	CapControlModes_KVAR    CapControlModes = 2 // kVAR control, ON and OFF settings on PT / CT base
+	CapControlModes_Time    CapControlModes = 3 // Time control, ON and OFF settings are seconds from midnight
+	CapControlModes_PF      CapControlModes = 4 // ON and OFF settings are power factor, negative for leading
+)
+
+type CktModels int32
+
+const (
+	CktModels_Multiphase  CktModels = 0 // Circuit model is multiphase (default)
+	CktModels_PositiveSeq CktModels = 1 // Circuit model is positive sequence model only
+)
+
+type ControlModes int32
+
+const (
+	ControlModes_Static    ControlModes = 0  // Control Mode option - Static
+	ControlModes_Event     ControlModes = 1  // Control Mode Option - Event driven solution mode
+	ControlModes_Time      ControlModes = 2  // Control mode option - Time driven mode
+	ControlModes_Multirate ControlModes = 3  // Control mode option - Multirate mode
+	ControlModes_Off       ControlModes = -1 // Control Mode OFF
+)
+
+// Transformer Core Type
+type CoreType int32
+
+const (
+	CoreType_shell        CoreType = 0
+	CoreType_one_phase    CoreType = 1
+	CoreType_three_leg    CoreType = 3
+	CoreType_four_leg     CoreType = 4
+	CoreType_five_leg     CoreType = 5
+	CoreType_core_1_phase CoreType = 9
+)
+
+const (
+	// If enabled, don't check for NaNs in the inner solution loop.
+	// This can lead to various errors.
+	// This flag is useful for legacy applications that don't handle OpenDSS API errors properly.
+	// Through the development of DSS-Extensions, we noticed this is actually a quite common issue.
+	DSSCompatFlags_NoSolverFloatChecks = 1
+
+	// If enabled, toggle worse precision for certain aspects of the engine. For
+	// example, the sequence-to-phase (`As2p`) and sequence-to-phase (`Ap2s`)
+	// transform matrices. On DSS C-API, we fill the matrix explicitly using
+	// higher precision, while numerical inversion of an initially worse precision
+	// matrix is used in the official OpenDSS. We will introduce better precision
+	// for other aspects of the engine in the future, so this flag can be used to
+	// toggle the old/bad values where feasible.
+	DSSCompatFlags_BadPrecision = 2
+
+	// Toggle some InvControl behavior introduced in OpenDSS 9.6.1.1. It could be a regression
+	// but needs further investigation, so we added this flag in the time being.
+	DSSCompatFlags_InvControl9611 = 4
+
+	// When using "save circuit", the official OpenDSS always includes the "CalcVoltageBases" command in the
+	// saved script. We found that it is not always a good idea, so we removed the command (leaving it commented).
+	// Use this flag to enable the command in the saved script.
+	DSSCompatFlags_SaveCalcVoltageBases = 8
+
+	// In the official OpenDSS implementation, the Lines API use the active circuit element instead of the
+	// active line. This can lead to unexpected behavior if the user is not aware of this detail.
+	// For example, if the user accidentally enables any other circuit element, the next time they use
+	// the Lines API, the line object that was previously enabled is overwritten with another unrelated
+	// object.
+	// This flag enables this behavior above if compatibility at this level is required. On DSS-Extensions,
+	// we changed the behavior to follow what most of the other APIs do: use the active object in the internal
+	// list. This change was done for DSS C-API v0.13.5, as well as the introduction of this flag.
+	DSSCompatFlags_ActiveLine = 16
+
+	// On DSS-Extensions/AltDSS, when setting a property invalidates a previous input value, the engine
+	// will try to mark the invalidated data as unset. This allows for better exports and tracking of
+	// the current state of DSS objects.
+	// Set this flag to disable this behavior, following the original OpenDSS implementation for potential
+	// compatibility with older software that may require the original behavior; note that may lead to
+	// errorneous interpretation of the data in the DSS properties. This was introduced in DSS C-API v0.14.0
+	// and will be further developed for future versions.
+	DSSCompatFlags_NoPropertyTracking = 32
+
+	// Some specific functions on the official OpenDSS APIs skip important side-effects.
+	// By default, on DSS-Extensions/AltDSS, those side-effects are enabled. Use this flag
+	// to try to follow the behavior of the official APIs. Beware that some side-effects are
+	// important and skipping them may result in incorrect results.
+	// This flag only affects some of the classic API functions, especially Loads and Generators.
+	DSSCompatFlags_SkipSideEffects = 64
+)
+
+const (
+	// Return all properties, regardless of order or if the property was filled by the user
+	DSSJSONFlags_Full = 1
+
+	// Skip redundant properties
+	DSSJSONFlags_SkipRedundant = 2
+
+	// Return enums as integers instead of strings
+	DSSJSONFlags_EnumAsInt = 4
+
+	// Use full names for the elements, including the class name
+	DSSJSONFlags_FullNames = 8
+
+	// Try to "pretty" format the JSON output
+	DSSJSONFlags_Pretty = 16
+
+	// Exclude disabled elements (only valid when exporting a collection)
+	DSSJSONFlags_ExcludeDisabled = 32
+
+	// Do not add the "DSSClass" property to the output
+	DSSJSONFlags_SkipDSSClass = 64
+
+	// Use lowercase representation for the property names (and other keys) instead of the internal variants.
+	DSSJSONFlags_LowercaseKeys = 128
+
+	// Include default unchanged objects in the exports.
+	// Any default object that has been edited is always exported. Affects whole circuit and batch exports.
+	DSSJSONFlags_IncludeDefaultObjs = 256
+)
+
+// This enum is used in the PropertyNameStyle property to control the naming convention.
+// Currently, this only affects capitalization, i.e., if you software already uses case
+// insensitive string comparisons for the property names, this is not useful. Otherwise,
+// you can use `Legacy` to use the older names.
+type DSSPropertyNameStyle int32
+
+const (
+	// By default, the modern names are used. The names were reviewed to try to reach a convention across all components.
+	DSSPropertyNameStyle_Modern DSSPropertyNameStyle = 0
+
+	// Use all lowercase strings.
+	DSSPropertyNameStyle_Lowercase DSSPropertyNameStyle = 1
+
+	// Use the previous capitalization of the property names.
+	DSSPropertyNameStyle_Legacy DSSPropertyNameStyle = 2
+)
+
+type GeneratorStatus int32
+
+const (
+	GeneratorStatus_Variable GeneratorStatus = 0
+	GeneratorStatus_Fixed    GeneratorStatus = 1
+)
+
+type LineUnits int32
+
+const (
+	LineUnits_none  LineUnits = 0 // No line length unit
+	LineUnits_Miles LineUnits = 1 // Line length units in miles
+	LineUnits_kFt   LineUnits = 2 // Line length units are in thousand feet
+	LineUnits_km    LineUnits = 3 // Line length units are km
+	LineUnits_meter LineUnits = 4 // Line length units are meters
+	LineUnits_ft    LineUnits = 5 // Line units in feet
+	LineUnits_inch  LineUnits = 6 // Line length units are inches
+	LineUnits_cm    LineUnits = 7 // Line units are cm
+	LineUnits_mm    LineUnits = 8 // Line length units are mm
+)
+
+type LoadModels int32
+
+const (
+	LoadModels_ConstPQ      LoadModels = 1
+	LoadModels_ConstZ       LoadModels = 2
+	LoadModels_Motor        LoadModels = 3
+	LoadModels_CVR          LoadModels = 4
+	LoadModels_ConstI       LoadModels = 5
+	LoadModels_ConstPFixedQ LoadModels = 6
+	LoadModels_ConstPFixedX LoadModels = 7
+	LoadModels_ZIPV         LoadModels = 8
+)
+
+type LoadStatus int32
+
+const (
+	LoadStatus_Variable LoadStatus = 0
+	LoadStatus_Fixed    LoadStatus = 1
+	LoadStatus_Exempt   LoadStatus = 2
+)
+
+type MonitorModes int32
+
+const (
+	MonitorModes_VI        MonitorModes = 0  // Monitor records Voltage and Current at the terminal (Default)
+	MonitorModes_Power     MonitorModes = 1  // Monitor records kW, kvar or kVA, angle values, etc. at the terminal to which it is connected.
+	MonitorModes_Taps      MonitorModes = 2  // For monitoring Regulator and Transformer taps
+	MonitorModes_States    MonitorModes = 3  // For monitoring State Variables (for PC Elements only)
+	MonitorModes_Sequence  MonitorModes = 16 // Reports the monitored quantities as sequence quantities
+	MonitorModes_Magnitude MonitorModes = 32 // Reports the monitored quantities in Magnitude Only
+	MonitorModes_PosOnly   MonitorModes = 64 // Reports the Positive Seq only or avg of all phases
+)
+
+// Overcurrent Protection Device Type
+type OCPDevType int32
+
+const (
+	OCPDevType_none     OCPDevType = 0
+	OCPDevType_Fuse     OCPDevType = 1
+	OCPDevType_Recloser OCPDevType = 2
+	OCPDevType_Relay    OCPDevType = 3
+)
+
+// Deprecated. Please use instead:
+// - AutoAddTypes
+// - CktModels
+// - ControlModes
+// - SolutionLoadModels
+// - SolutionAlgorithms
+// - RandomModes
+type Options int32
+
+const (
+	Options_PowerFlow   Options = 1
+	Options_Admittance  Options = 2
+	Options_NormalSolve Options = 0
+	Options_LogNormal   Options = 3
+	Options_ControlOFF  Options = -1
+)
+
+type RandomModes int32
+
+const (
+	RandomModes_Gaussian  RandomModes = 1
+	RandomModes_Uniform   RandomModes = 2
+	RandomModes_LogNormal RandomModes = 3
+)
+
+type SolutionAlgorithms int32
+
+const (
+	SolutionAlgorithms_NormalSolve SolutionAlgorithms = 0 // Solution algorithm option - Normal solution
+	SolutionAlgorithms_NewtonSolve SolutionAlgorithms = 1 // Solution algorithm option - Newton solution
+)
+
+type SolutionLoadModels int32
+
+const (
+	SolutionLoadModels_PowerFlow  SolutionLoadModels = 1 // Power Flow load model option
+	SolutionLoadModels_Admittance SolutionLoadModels = 2 // Admittance load model option
+)
+
+type SolveModes int32
+
+const (
+	SolveModes_SnapShot   SolveModes = 0  // Solve a single snapshot power flow
+	SolveModes_Daily      SolveModes = 1  // Solve following Daily load shapes
+	SolveModes_Yearly     SolveModes = 2  // Solve following Yearly load shapes
+	SolveModes_Monte1     SolveModes = 3  // Monte Carlo Mode 1
+	SolveModes_LD1        SolveModes = 4  // Load-duration Mode 1
+	SolveModes_PeakDay    SolveModes = 5  // Solves for Peak Day using Daily load curve
+	SolveModes_DutyCycle  SolveModes = 6  // Solve following Duty Cycle load shapes
+	SolveModes_Direct     SolveModes = 7  // Solve direct (forced admittance model)
+	SolveModes_MonteFault SolveModes = 8  // Monte carlo Fault Study
+	SolveModes_FaultStudy SolveModes = 9  // Fault study at all buses
+	SolveModes_Monte2     SolveModes = 10 // Monte Carlo Mode 2
+	SolveModes_Monte3     SolveModes = 11 // Monte Carlo Mode 3
+	SolveModes_LD2        SolveModes = 12 // Load-Duration Mode 2
+	SolveModes_AutoAdd    SolveModes = 13 // Auto add generators or capacitors
+	SolveModes_Dynamic    SolveModes = 14 // Solve for dynamics
+	SolveModes_Harmonic   SolveModes = 15 // Harmonic solution mode
+	SolveModes_Time       SolveModes = 16
+	SolveModes_HarmonicT  SolveModes = 17
+)
+
+type SparseSolverOptions int32
+
+const (
+	// Default behavior, following the official OpenDSS implementation.
+	SparseSolverOptions_ReuseNothing SparseSolverOptions = 0
+
+	// Reuse only the prepared CSC matrix. This should be numerically exact, but
+	// may have some cost saving if the number of entries changed in the system Y
+	// matrix are a small fraction of the total entries.
+	SparseSolverOptions_ReuseCompressedMatrix SparseSolverOptions = 1
+
+	// Reuse the symbolic factorization, implies ReuseCompressedMatrix
+	SparseSolverOptions_ReuseSymbolicFactorization SparseSolverOptions = 2
+
+	// Reuse the numeric factorization, implies ReuseSymbolicFactorization
+	SparseSolverOptions_ReuseNumericFactorization SparseSolverOptions = 3
+
+	// Bit flag, see CktElement.pas for details. Some components do not clear the
+	// dirty flag after their YPrim is updated, so YPrim is updated every time the
+	// system Y is changed, even if there are no changes to the component. This
+	// flag forces clearing the dirty flag, keeping the YPrim matrix constant when
+	// the component has not changed.
+	SparseSolverOptions_AlwaysResetYPrimInvalid SparseSolverOptions = 268435456
+)
+
+type YMatrixModes int32
+
+const (
+	YMatrixModes_SeriesOnly  YMatrixModes = 1
+	YMatrixModes_WholeMatrix YMatrixModes = 2
+)
+
 type DSSContextPtrs struct {
 	// Pointer to the context
 	ctxPtr unsafe.Pointer
@@ -504,11 +835,11 @@ func (cndata *ICNData) Set_GMRac(value float64) error {
 	return cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Get_GMRUnits() (int32, error) {
-	return (int32)((C.ctx_CNData_Get_GMRUnits(cndata.ctxPtr))), cndata.ctx.DSSError()
+func (cndata *ICNData) Get_GMRUnits() (LineUnits, error) {
+	return (LineUnits)(C.ctx_CNData_Get_GMRUnits(cndata.ctxPtr)), cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Set_GMRUnits(value int32) error {
+func (cndata *ICNData) Set_GMRUnits(value LineUnits) error {
 	C.ctx_CNData_Set_GMRUnits(cndata.ctxPtr, (C.int32_t)(value))
 	return cndata.ctx.DSSError()
 }
@@ -522,20 +853,20 @@ func (cndata *ICNData) Set_Radius(value float64) error {
 	return cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Get_RadiusUnits() (int32, error) {
-	return (int32)((C.ctx_CNData_Get_RadiusUnits(cndata.ctxPtr))), cndata.ctx.DSSError()
+func (cndata *ICNData) Get_RadiusUnits() (LineUnits, error) {
+	return (LineUnits)(C.ctx_CNData_Get_RadiusUnits(cndata.ctxPtr)), cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Set_RadiusUnits(value int32) error {
+func (cndata *ICNData) Set_RadiusUnits(value LineUnits) error {
 	C.ctx_CNData_Set_RadiusUnits(cndata.ctxPtr, (C.int32_t)(value))
 	return cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Get_ResistanceUnits() (int32, error) {
-	return (int32)((C.ctx_CNData_Get_ResistanceUnits(cndata.ctxPtr))), cndata.ctx.DSSError()
+func (cndata *ICNData) Get_ResistanceUnits() (LineUnits, error) {
+	return (LineUnits)(C.ctx_CNData_Get_ResistanceUnits(cndata.ctxPtr)), cndata.ctx.DSSError()
 }
 
-func (cndata *ICNData) Set_ResistanceUnits(value int32) error {
+func (cndata *ICNData) Set_ResistanceUnits(value LineUnits) error {
 	C.ctx_CNData_Set_ResistanceUnits(cndata.ctxPtr, (C.int32_t)(value))
 	return cndata.ctx.DSSError()
 }
@@ -1002,8 +1333,8 @@ func (cktelement *ICktElement) OCPDevIndex() (int32, error) {
 }
 
 // 0=None; 1=Fuse; 2=Recloser; 3=Relay;  Type of OCP controller device
-func (cktelement *ICktElement) OCPDevType() (int32, error) {
-	return (int32)((C.ctx_CktElement_Get_OCPDevType(cktelement.ctxPtr))), cktelement.ctx.DSSError()
+func (cktelement *ICktElement) OCPDevType() (OCPDevType, error) {
+	return (OCPDevType)(C.ctx_CktElement_Get_OCPDevType(cktelement.ctxPtr)), cktelement.ctx.DSSError()
 }
 
 // Complex array of losses (kVA) by phase
@@ -1297,11 +1628,11 @@ func (generators *IGenerators) Set_Yearly(value string) error {
 // Related enumeration: GeneratorStatus
 //
 // (API Extension)
-func (generators *IGenerators) Get_Status() (int32, error) {
-	return (int32)((C.ctx_Generators_Get_Status(generators.ctxPtr))), generators.ctx.DSSError()
+func (generators *IGenerators) Get_Status() (GeneratorStatus, error) {
+	return (GeneratorStatus)(C.ctx_Generators_Get_Status(generators.ctxPtr)), generators.ctx.DSSError()
 }
 
-func (generators *IGenerators) Set_Status(value int32) error {
+func (generators *IGenerators) Set_Status(value GeneratorStatus) error {
 	C.ctx_Generators_Set_Status(generators.ctxPtr, (C.int32_t)(value))
 	return generators.ctx.DSSError()
 }
@@ -1614,11 +1945,11 @@ func (lines *ILines) TotalCust() (int32, error) {
 	return (int32)(C.ctx_Lines_Get_TotalCust(lines.ctxPtr)), lines.ctx.DSSError()
 }
 
-func (lines *ILines) Get_Units() (int32, error) {
-	return (int32)((C.ctx_Lines_Get_Units(lines.ctxPtr))), lines.ctx.DSSError()
+func (lines *ILines) Get_Units() (LineUnits, error) {
+	return (LineUnits)(C.ctx_Lines_Get_Units(lines.ctxPtr)), lines.ctx.DSSError()
 }
 
-func (lines *ILines) Set_Units(value int32) error {
+func (lines *ILines) Set_Units(value LineUnits) error {
 	C.ctx_Lines_Set_Units(lines.ctxPtr, (C.int32_t)(value))
 	return lines.ctx.DSSError()
 }
@@ -3294,11 +3625,11 @@ func (linecodes *ILineCodes) Set_Rmatrix(value []float64) error {
 	return linecodes.ctx.DSSError()
 }
 
-func (linecodes *ILineCodes) Get_Units() (int32, error) {
-	return (int32)((C.ctx_LineCodes_Get_Units(linecodes.ctxPtr))), linecodes.ctx.DSSError()
+func (linecodes *ILineCodes) Get_Units() (LineUnits, error) {
+	return (LineUnits)(C.ctx_LineCodes_Get_Units(linecodes.ctxPtr)), linecodes.ctx.DSSError()
 }
 
-func (linecodes *ILineCodes) Set_Units(value int32) error {
+func (linecodes *ILineCodes) Set_Units(value LineUnits) error {
 	C.ctx_LineCodes_Set_Units(linecodes.ctxPtr, (C.int32_t)(value))
 	return linecodes.ctx.DSSError()
 }
@@ -3860,11 +4191,11 @@ func (solution *ISolution) Set_AddType(value int32) error {
 }
 
 // Base Solution algorithm: {dssNormalSolve | dssNewtonSolve}
-func (solution *ISolution) Get_Algorithm() (int32, error) {
-	return (int32)((C.ctx_Solution_Get_Algorithm(solution.ctxPtr))), solution.ctx.DSSError()
+func (solution *ISolution) Get_Algorithm() (SolutionAlgorithms, error) {
+	return (SolutionAlgorithms)(C.ctx_Solution_Get_Algorithm(solution.ctxPtr)), solution.ctx.DSSError()
 }
 
-func (solution *ISolution) Set_Algorithm(value int32) error {
+func (solution *ISolution) Set_Algorithm(value SolutionAlgorithms) error {
 	C.ctx_Solution_Set_Algorithm(solution.ctxPtr, (C.int32_t)(value))
 	return solution.ctx.DSSError()
 }
@@ -3900,11 +4231,11 @@ func (solution *ISolution) Set_ControlIterations(value int32) error {
 }
 
 // {dssStatic* | dssEvent | dssTime}  Modes for control devices
-func (solution *ISolution) Get_ControlMode() (int32, error) {
-	return (int32)((C.ctx_Solution_Get_ControlMode(solution.ctxPtr))), solution.ctx.DSSError()
+func (solution *ISolution) Get_ControlMode() (ControlModes, error) {
+	return (ControlModes)(C.ctx_Solution_Get_ControlMode(solution.ctxPtr)), solution.ctx.DSSError()
 }
 
-func (solution *ISolution) Set_ControlMode(value int32) error {
+func (solution *ISolution) Set_ControlMode(value ControlModes) error {
 	C.ctx_Solution_Set_ControlMode(solution.ctxPtr, (C.int32_t)(value))
 	return solution.ctx.DSSError()
 }
@@ -4079,11 +4410,11 @@ func (solution *ISolution) Set_MinIterations(value int32) error {
 }
 
 // Set present solution mode
-func (solution *ISolution) Get_Mode() (int32, error) {
-	return (int32)((C.ctx_Solution_Get_Mode(solution.ctxPtr))), solution.ctx.DSSError()
+func (solution *ISolution) Get_Mode() (SolveModes, error) {
+	return (SolveModes)(C.ctx_Solution_Get_Mode(solution.ctxPtr)), solution.ctx.DSSError()
 }
 
-func (solution *ISolution) Set_Mode(value int32) error {
+func (solution *ISolution) Set_Mode(value SolveModes) error {
 	C.ctx_Solution_Set_Mode(solution.ctxPtr, (C.int32_t)(value))
 	return solution.ctx.DSSError()
 }
@@ -4387,12 +4718,17 @@ func (linegeometries *ILineGeometries) Cmatrix(Frequency float64, Length float64
 	return linegeometries.ctx.GetFloat64ArrayGR()
 }
 
-func (linegeometries *ILineGeometries) Get_Units() ([]int32, error) {
+func (linegeometries *ILineGeometries) Get_Units() ([]LineUnits, error) {
 	C.ctx_LineGeometries_Get_Units_GR(linegeometries.ctxPtr)
-	return linegeometries.ctx.GetInt32ArrayGR()
+	tmp, err := (linegeometries.ctx.GetInt32ArrayGR())
+	res := make([]LineUnits, len(tmp))
+	for i := 0; i < len(tmp); i++ {
+		res[i] = (LineUnits)(tmp[i])
+	}
+	return res, err
 }
 
-func (linegeometries *ILineGeometries) Set_Units(value []int32) error {
+func (linegeometries *ILineGeometries) Set_Units(value []LineUnits) error {
 	C.ctx_LineGeometries_Set_Units(linegeometries.ctxPtr, (*C.int32_t)(&value[0]), (C.int32_t)(len(value)))
 	return linegeometries.ctx.DSSError()
 }
@@ -4504,11 +4840,11 @@ func (linespacings *ILineSpacings) Set_Nconds(value int32) error {
 	return linespacings.ctx.DSSError()
 }
 
-func (linespacings *ILineSpacings) Get_Units() (int32, error) {
-	return (int32)((C.ctx_LineSpacings_Get_Units(linespacings.ctxPtr))), linespacings.ctx.DSSError()
+func (linespacings *ILineSpacings) Get_Units() (LineUnits, error) {
+	return (LineUnits)(C.ctx_LineSpacings_Get_Units(linespacings.ctxPtr)), linespacings.ctx.DSSError()
 }
 
-func (linespacings *ILineSpacings) Set_Units(value int32) error {
+func (linespacings *ILineSpacings) Set_Units(value LineUnits) error {
 	C.ctx_LineSpacings_Set_Units(linespacings.ctxPtr, (C.int32_t)(value))
 	return linespacings.ctx.DSSError()
 }
@@ -4861,11 +5197,11 @@ func (loads *ILoads) Set_IsDelta(value bool) error {
 }
 
 // The Load Model defines variation of P and Q with voltage.
-func (loads *ILoads) Get_Model() (int32, error) {
-	return (int32)(C.ctx_Loads_Get_Model(loads.ctxPtr)), loads.ctx.DSSError()
+func (loads *ILoads) Get_Model() (LoadModels, error) {
+	return (LoadModels)(C.ctx_Loads_Get_Model(loads.ctxPtr)), loads.ctx.DSSError()
 }
 
-func (loads *ILoads) Set_Model(value int32) error {
+func (loads *ILoads) Set_Model(value LoadModels) error {
 	C.ctx_Loads_Set_Model(loads.ctxPtr, (C.int32_t)(value))
 	return loads.ctx.DSSError()
 }
@@ -4943,11 +5279,11 @@ func (loads *ILoads) Set_Spectrum(value string) error {
 }
 
 // Response to load multipliers: Fixed (growth only), Exempt (no LD curve), Variable (all).
-func (loads *ILoads) Get_Status() (int32, error) {
-	return (int32)((C.ctx_Loads_Get_Status(loads.ctxPtr))), loads.ctx.DSSError()
+func (loads *ILoads) Get_Status() (LoadStatus, error) {
+	return (LoadStatus)(C.ctx_Loads_Get_Status(loads.ctxPtr)), loads.ctx.DSSError()
 }
 
-func (loads *ILoads) Set_Status(value int32) error {
+func (loads *ILoads) Set_Status(value LoadStatus) error {
 	C.ctx_Loads_Set_Status(loads.ctxPtr, (C.int32_t)(value))
 	return loads.ctx.DSSError()
 }
@@ -7135,11 +7471,11 @@ func (swtcontrols *ISwtControls) Set_IsLocked(value bool) error {
 }
 
 // Get/set Normal state of switch (see actioncodes) dssActionOpen or dssActionClose
-func (swtcontrols *ISwtControls) Get_NormalState() (int32, error) {
-	return (int32)((C.ctx_SwtControls_Get_NormalState(swtcontrols.ctxPtr))), swtcontrols.ctx.DSSError()
+func (swtcontrols *ISwtControls) Get_NormalState() (ActionCodes, error) {
+	return (ActionCodes)(C.ctx_SwtControls_Get_NormalState(swtcontrols.ctxPtr)), swtcontrols.ctx.DSSError()
 }
 
-func (swtcontrols *ISwtControls) Set_NormalState(value int32) error {
+func (swtcontrols *ISwtControls) Set_NormalState(value ActionCodes) error {
 	C.ctx_SwtControls_Set_NormalState(swtcontrols.ctxPtr, (C.int32_t)(value))
 	return swtcontrols.ctx.DSSError()
 }
@@ -7800,11 +8136,11 @@ func (transformers *ITransformers) strWdgCurrents() (string, error) {
 }
 
 // Transformer Core Type: 0=Shell; 1=1ph; 3-3leg; 4=4-Leg; 5=5-leg; 9=Core-1-phase
-func (transformers *ITransformers) Get_CoreType() (int32, error) {
-	return (int32)((C.ctx_Transformers_Get_CoreType(transformers.ctxPtr))), transformers.ctx.DSSError()
+func (transformers *ITransformers) Get_CoreType() (CoreType, error) {
+	return (CoreType)(C.ctx_Transformers_Get_CoreType(transformers.ctxPtr)), transformers.ctx.DSSError()
 }
 
-func (transformers *ITransformers) Set_CoreType(value int32) error {
+func (transformers *ITransformers) Set_CoreType(value CoreType) error {
 	C.ctx_Transformers_Set_CoreType(transformers.ctxPtr, (C.int32_t)(value))
 	return transformers.ctx.DSSError()
 }
@@ -8044,11 +8380,11 @@ func (wiredata *IWireData) Set_GMRac(value float64) error {
 	return wiredata.ctx.DSSError()
 }
 
-func (wiredata *IWireData) Get_GMRUnits() (int32, error) {
-	return (int32)((C.ctx_WireData_Get_GMRUnits(wiredata.ctxPtr))), wiredata.ctx.DSSError()
+func (wiredata *IWireData) Get_GMRUnits() (LineUnits, error) {
+	return (LineUnits)(C.ctx_WireData_Get_GMRUnits(wiredata.ctxPtr)), wiredata.ctx.DSSError()
 }
 
-func (wiredata *IWireData) Set_GMRUnits(value int32) error {
+func (wiredata *IWireData) Set_GMRUnits(value LineUnits) error {
 	C.ctx_WireData_Set_GMRUnits(wiredata.ctxPtr, (C.int32_t)(value))
 	return wiredata.ctx.DSSError()
 }
@@ -8071,11 +8407,11 @@ func (wiredata *IWireData) Set_RadiusUnits(value int32) error {
 	return wiredata.ctx.DSSError()
 }
 
-func (wiredata *IWireData) Get_ResistanceUnits() (int32, error) {
-	return (int32)((C.ctx_WireData_Get_ResistanceUnits(wiredata.ctxPtr))), wiredata.ctx.DSSError()
+func (wiredata *IWireData) Get_ResistanceUnits() (LineUnits, error) {
+	return (LineUnits)(C.ctx_WireData_Get_ResistanceUnits(wiredata.ctxPtr)), wiredata.ctx.DSSError()
 }
 
-func (wiredata *IWireData) Set_ResistanceUnits(value int32) error {
+func (wiredata *IWireData) Set_ResistanceUnits(value LineUnits) error {
 	C.ctx_WireData_Set_ResistanceUnits(wiredata.ctxPtr, (C.int32_t)(value))
 	return wiredata.ctx.DSSError()
 }
