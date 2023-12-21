@@ -56,4 +56,22 @@ func main() {
 	}
 	println("First instance (Prime/Default), circuit name:", circName)
 	println("Second instance, circuit name:", circName2)
+
+	// Test bus activation
+	println()
+	println("Selecting bus 632")
+	busNum, err := dss.ActiveCircuit.SetActiveBus("632")
+	if err != nil {
+		log.Fatal(err)
+	}
+	busName, err := dss.ActiveCircuit.ActiveBus.Name()
+	println("Active Bus:", busName, "number", busNum)
+	println("Selecting bus 671")
+	busNum, err = dss.ActiveCircuit.SetActiveBus("671")
+	if err != nil {
+		log.Fatal(err)
+	}
+	busName, err = dss.ActiveCircuit.ActiveBus.Name()
+	println("Active Bus:", busName, "number", busNum)
+
 }

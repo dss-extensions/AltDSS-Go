@@ -1745,7 +1745,7 @@ func (lines *ILines) Set_idx(value int32) error {
 
 func (lines *ILines) New(Name string) (int32, error) {
 	Name_c := C.CString(Name)
-	C.free(unsafe.Pointer(Name_c))
+	defer C.free(unsafe.Pointer(Name_c))
 	return (int32)(C.ctx_Lines_New(lines.ctxPtr, Name_c)), lines.ctx.DSSError()
 }
 
@@ -1757,7 +1757,7 @@ func (lines *ILines) Get_Bus1() (string, error) {
 func (lines *ILines) Set_Bus1(value string) error {
 	value_c := C.CString(value)
 	C.ctx_Lines_Set_Bus1(lines.ctxPtr, value_c)
-	C.free(unsafe.Pointer(value_c))
+	defer C.free(unsafe.Pointer(value_c))
 	return lines.ctx.DSSError()
 }
 
@@ -2732,7 +2732,7 @@ func (circuit *ICircuit) SaveSample() error {
 
 func (circuit *ICircuit) SetActiveBus(BusName string) (int32, error) {
 	BusName_c := C.CString(BusName)
-	C.free(unsafe.Pointer(BusName_c))
+	defer C.free(unsafe.Pointer(BusName_c))
 	return (int32)(C.ctx_Circuit_SetActiveBus(circuit.ctxPtr, BusName_c)), circuit.ctx.DSSError()
 }
 
@@ -2742,13 +2742,13 @@ func (circuit *ICircuit) SetActiveBusi(BusIndex int32) (int32, error) {
 
 func (circuit *ICircuit) SetActiveClass(ClassName string) (int32, error) {
 	ClassName_c := C.CString(ClassName)
-	C.free(unsafe.Pointer(ClassName_c))
+	defer C.free(unsafe.Pointer(ClassName_c))
 	return (int32)(C.ctx_Circuit_SetActiveClass(circuit.ctxPtr, ClassName_c)), circuit.ctx.DSSError()
 }
 
 func (circuit *ICircuit) SetActiveElement(FullName string) (int32, error) {
 	FullName_c := C.CString(FullName)
-	C.free(unsafe.Pointer(FullName_c))
+	defer C.free(unsafe.Pointer(FullName_c))
 	return (int32)(C.ctx_Circuit_SetActiveElement(circuit.ctxPtr, FullName_c)), circuit.ctx.DSSError()
 }
 
@@ -4929,7 +4929,7 @@ func (loadshapes *ILoadShapes) Set_idx(value int32) error {
 
 func (loadshapes *ILoadShapes) New(Name string) (int32, error) {
 	Name_c := C.CString(Name)
-	C.free(unsafe.Pointer(Name_c))
+	defer C.free(unsafe.Pointer(Name_c))
 	return (int32)(C.ctx_LoadShapes_New(loadshapes.ctxPtr, Name_c)), loadshapes.ctx.DSSError()
 }
 
@@ -8754,7 +8754,7 @@ func (zip *IZIP) Redirect(FileInZip string) error {
 // (API Extension)
 func (zip *IZIP) Contains(Name string) (bool, error) {
 	Name_c := C.CString(Name)
-	C.free(unsafe.Pointer(Name_c))
+	defer C.free(unsafe.Pointer(Name_c))
 	return (C.ctx_ZIP_Contains(zip.ctxPtr, Name_c) != 0), zip.ctx.DSSError()
 }
 
@@ -9162,7 +9162,7 @@ func (dss *IDSS) Reset() error {
 
 func (dss *IDSS) SetActiveClass(ClassName string) (int32, error) {
 	ClassName_c := C.CString(ClassName)
-	C.free(unsafe.Pointer(ClassName_c))
+	defer C.free(unsafe.Pointer(ClassName_c))
 	return (int32)(C.ctx_DSS_SetActiveClass(dss.ctxPtr, ClassName_c)), dss.ctx.DSSError()
 }
 
