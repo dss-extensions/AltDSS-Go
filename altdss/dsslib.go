@@ -666,24 +666,24 @@ func (bus *IBus) ZscMatrix() ([]complex128, error) {
 }
 
 // Base voltage at bus in kV
-func (bus *IBus) kVBase() (float64, error) {
+func (bus *IBus) Get_kVBase() (float64, error) {
 	return (float64)(C.ctx_Bus_Get_kVBase(bus.ctxPtr)), bus.ctx.DSSError()
 }
 
 // Returns Complex array of pu L-L voltages for 2- and 3-phase buses. Returns -1.0 for 1-phase bus. If more than 3 phases, returns only 3 phases.
-func (bus *IBus) puVLL() ([]complex128, error) {
+func (bus *IBus) PUVLL() ([]complex128, error) {
 	C.ctx_Bus_Get_puVLL_GR(bus.ctxPtr)
 	return bus.ctx.GetComplexArrayGR()
 }
 
 // Array of doubles containing voltage magnitude, angle (degrees) pairs in per unit
-func (bus *IBus) puVmagAngle() ([]float64, error) {
+func (bus *IBus) PUVMagAngle() ([]float64, error) {
 	C.ctx_Bus_Get_puVmagAngle_GR(bus.ctxPtr)
 	return bus.ctx.GetFloat64ArrayGR()
 }
 
 // Complex Array of pu voltages at the bus.
-func (bus *IBus) puVoltages() ([]complex128, error) {
+func (bus *IBus) PUVoltages() ([]complex128, error) {
 	C.ctx_Bus_Get_puVoltages_GR(bus.ctxPtr)
 	return bus.ctx.GetComplexArrayGR()
 }
@@ -2895,10 +2895,12 @@ func (circuit *ICircuit) YNodeVarray() ([]complex128, error) {
 }
 
 // Returns data for all objects and basic circuit properties as a JSON-encoded string.
-// The JSON data is organized using
+//
+// The JSON data is organized using the JSON schema proposed at
+// https://github.com/dss-extensions/AltDSS-Schema
 //
 // The `options` parameter contains bit-flags to toggle specific features.
-// See `Obj_ToJSON` (C-API) for more.
+// See the enum `DSSJSONFlags` or `Obj_ToJSON` (C-API) for more.
 //
 // (API Extension)
 func (circuit *ICircuit) ToJSON(options int32) (string, error) {
@@ -3849,13 +3851,13 @@ func (monitors *IMonitors) Set_Terminal(value int32) error {
 }
 
 // Array of doubles containing frequency values for harmonics mode solutions; Empty for time mode solutions (use dblHour)
-func (monitors *IMonitors) dblFreq() ([]float64, error) {
+func (monitors *IMonitors) DblFreq() ([]float64, error) {
 	C.ctx_Monitors_Get_dblFreq_GR(monitors.ctxPtr)
 	return monitors.ctx.GetFloat64ArrayGR()
 }
 
 // Array of doubles containing time value in hours for time-sampled monitor values; Empty if frequency-sampled values for harmonics solution (see dblFreq)
-func (monitors *IMonitors) dblHour() ([]float64, error) {
+func (monitors *IMonitors) DblHour() ([]float64, error) {
 	C.ctx_Monitors_Get_dblHour_GR(monitors.ctxPtr)
 	return monitors.ctx.GetFloat64ArrayGR()
 }
@@ -6145,7 +6147,7 @@ func (pvsystems *IPVSystems) Set_kVArated(value float64) error {
 }
 
 // Get kW output
-func (pvsystems *IPVSystems) kW() (float64, error) {
+func (pvsystems *IPVSystems) Get_kW() (float64, error) {
 	return (float64)(C.ctx_PVSystems_Get_kW(pvsystems.ctxPtr)), pvsystems.ctx.DSSError()
 }
 
@@ -8131,7 +8133,7 @@ func (transformers *ITransformers) WdgCurrents() ([]complex128, error) {
 //
 // WARNING: If the transformer has open terminal(s), results may be wrong, i.e. avoid using this
 // in those situations. For more information, see https://github.com/dss-extensions/dss-extensions/issues/24
-func (transformers *ITransformers) strWdgCurrents() (string, error) {
+func (transformers *ITransformers) StrWdgCurrents() (string, error) {
 	return C.GoString(C.ctx_Transformers_Get_strWdgCurrents(transformers.ctxPtr)), transformers.ctx.DSSError()
 }
 
