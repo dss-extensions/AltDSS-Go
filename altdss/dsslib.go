@@ -418,6 +418,7 @@ func (ctx *DSSContextPtrs) GetComplexArrayGR() ([]complex128, error) {
 	if res_cnt == 1 {
 		res_cnt = 0
 	}
+	res_cnt /= 2
 	cdata := unsafe.Slice((*complex128)(unsafe.Pointer(*ctx.DataPtr_PDouble)), res_cnt)
 	result := make([]complex128, res_cnt)
 	copy(result, cdata)
