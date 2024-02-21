@@ -13,7 +13,7 @@ import (
 */
 import "C"
 
-const DSS_CAPI_VERSION = "0.14.0b1"
+const DSS_CAPI_VERSION = "0.14.1"
 
 type ActionCodes int32
 

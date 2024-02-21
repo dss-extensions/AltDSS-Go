@@ -8,11 +8,11 @@ This is a new project, initially targeting Linux. Other platforms will be added 
 
 While proper configuration and scripts are not in place:
 
-```
+```bash
 git clone https://github.com/dss-extensions/electricdss-tst # for sample files
 git clone https://github.com/dss-extensions/altdss-go
 cd altdss-go
-wget -qO- https://github.com/dss-extensions/dss_capi/releases/download/0.14.0b1/dss_capi_0.14.0b1_linux_x64.tar.gz | tar zxv
+wget -qO- https://github.com/dss-extensions/dss_capi/releases/download/0.14.1/dss_capi_0.14.1_linux_x64.tar.gz | tar zxv
 export CPATH=`pwd`/dss_capi/include/
 mv dss_capi/lib/linux_x64/*.so .
 export LIBRARY_PATH=`pwd`
