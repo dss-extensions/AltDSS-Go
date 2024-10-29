@@ -36,6 +36,7 @@ func main() {
 		println(i, names[i], vmag[i]/1000, cvolts[i])
 	}
 	dss2, err := dss.NewContext()
+	defer dss2.Dispose()
 	if err != nil {
 		log.Fatal(err)
 	}

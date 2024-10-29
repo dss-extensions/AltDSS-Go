@@ -9129,6 +9129,23 @@ func (dss *IDSS) Init(ctxPtr unsafe.Pointer) {
 	dss.ZIP.Init(ctx)
 }
 
+// Dispose an existing DSS engine context.
+//
+// Use this only with the contexts created by the NewContext() function.
+// The prime instance cannot be disposed by the user.
+//
+// (API Extension)
+func (dss *IDSS) Dispose() {
+	primePtr := C.ctx_Get_Prime()
+
+	if (primePtr == dss.ctxPtr) || (nil == dss.ctxPtr) {
+		return
+	}
+
+	C.ctx_Dispose(dss.ctxPtr)
+	dss.ctxPtr = nil
+}
+
 // Creates a new DSS engine context.
 // A DSS Context encapsulates most of the global state of the original OpenDSS engine,
 // allowing the user to create multiple instances in the same process. By creating contexts
